@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Shift & Work Scheduler</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef4ff',
+              100: '#d9e6ff',
+              200: '#bcd4ff',
+              500: '#006bff',
+              600: '#0055cc',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .fade-in {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Minimal Top Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center text-white shadow-xs">
+          <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-bold text-base sm:text-lg tracking-tight text-slate-900">Team Shift & Work Log</span>
+        </div>
+      </div>
+
+      <!-- Simple Two-Tab Switcher -->
+      <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/80">
+        <button id="tab-select" onclick="switchTab('select')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 bg-white text-brand-600 shadow-xs">
+          <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+          <span>Select Schedule</span>
+        </button>
+        <button id="tab-summary" onclick="switchTab('summary')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900">
+          <i data-lucide="table" class="w-4 h-4"></i>
+          <span>View Team Schedule</span>
+          <span id="entry-count-badge" class="ml-0.5 px-1.5 py-0.2 text-xs rounded-full bg-brand-500 text-white font-bold">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: SPLIT-CARD SCHEDULER                                         -->
+    <!-- =================================================================== -->
+    <section id="view-select" class="fade-in">
+      <div class="bg-white rounded-2xl shadow-md shadow-slate-200/60 border border-slate-200/90 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+
+        <!-- LEFT SIDE: Employee Name + Monthly Calendar -->
+        <div class="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-slate-200 p-6 sm:p-7 flex flex-col justify-between bg-white">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Step 1 • Who & When</span>
+            <h1 class="text-xl font-bold text-slate-900 mt-1">Choose Name & Date</h1>
+            <p class="text-xs text-slate-500 mt-1">Select your name from the team list or enter a custom name, then pick a date.</p>
+
+            <!-- Employee Name Dropdown -->
+            <div class="mt-5">
+              <label for="employee-select" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                Employee Name *
+              </label>
+              <div class="relative">
+                <select id="employee-select" onchange="handleEmployeeChange(this.value)" class="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm font-medium text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition">
+                  <option value="" disabled selected>Select team member...</option>
+                  <!-- 17 Team Members populated via JS -->
+                  <option value="__CUSTOM__">+ Enter Custom Name...</option>
+                </select>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+              </div>
+
+              <!-- Custom Name Input (Hidden unless "+ Enter Custom Name..." is chosen) -->
+              <div id="custom-name-wrapper" class="hidden mt-2.5 fade-in">
+                <input id="custom-name-input" type="text" oninput="loadExistingEntryForSelection()" placeholder="Type full name..." class="w-full rounded-xl border border-brand-300 bg-brand-50/30 px-3.5 py-2 text-sm text-slate-900 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+              </div>
+            </div>
+
+            <!-- Simple Monthly Calendar -->
+            <div class="mt-6 pt-5 border-t border-slate-100">
+              <div class="flex items-center justify-between mb-3">
+                <span id="calendar-month-label" class="text-sm font-bold text-slate-900">November 2026</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" onclick="changeMonth(-1)" aria-label="Previous Month" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-brand-600 transition">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                  </button>
+                  <button type="button" onclick="changeMonth(1)" aria-label="Next Month" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-brand-600 transition">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400 uppercase mb-1.5">
+                <div>Su</div>
+                <div>Mo</div>
+                <div>Tu</div>
+                <div>We</div>
+                <div>Th</div>
+                <div>Fr</div>
+                <div>Sa</div>
+              </div>
+
+              <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+            <span>Indochina Time (GMT+7)</span>
+            <span id="calendar-legend" class="flex items-center gap-1.5 text-slate-500">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Saved entry
+            </span>
+          </div>
+        </div>
+
+        <!-- RIGHT SIDE: 3 Multi-Select Shift Options + Work Details -->
+        <div class="lg:col-span-7 p-6 sm:p-7 flex flex-col justify-between bg-slate-50/40">
+          <form id="schedule-form" onsubmit="handleSaveSchedule(event)" class="space-y-6">
+            <div>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Step 2 • Shifts & Tasks</span>
+                  <h2 id="selected-date-title" class="text-xl font-bold text-slate-900 mt-0.5">Saturday, Nov 21, 2026</h2>
+                </div>
+                <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+                  Multi-select allowed
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">Select one or both shifts (or choose N/A), then note the work details for each selected option.</p>
+
+              <!-- The 3 Multi-Select Cards -->
+              <div class="mt-5 space-y-3" id="shift-cards-container">
+
+                <!-- Option 1: Morning Shift -->
+                <div id="card-morning" class="rounded-2xl border-2 border-slate-200 bg-white transition-all overflow-hidden">
+                  <button type="button" onclick="toggleOption('morning')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none">
+                    <div class="flex items-center gap-3.5">
+                      <div id="check-morning" class="w-5 h-5 rounded-md border-2 border-slate-300 flex items-center justify-center transition-colors bg-white">
+                        <i data-lucide="check" class="w-3.5 h-3.5 text-white hidden"></i>
+                      </div>
+                      <div>
+                        <div class="font-bold text-sm sm:text-base text-slate-900">7:30 AM - 11:30 AM</div>
+                        <div class="text-xs text-slate-500">Morning Shift</div>
+                      </div>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/70">4 hrs</span>
+                  </button>
+                  <!-- Dedicated Note Box for Morning Shift -->
+                  <div id="note-box-morning" class="hidden px-4 pb-4 pt-1 border-t border-slate-100 bg-brand-50/20 fade-in">
+                    <label for="note-morning" class="block text-xs font-semibold text-slate-700 mb-1">
+                      Work Details for 7:30 AM - 11:30 AM *
+                    </label>
+                    <textarea id="note-morning" rows="2" placeholder="Enter tasks or work details for the morning shift..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+                  </div>
+                </div>
+
+                <!-- Option 2: Afternoon Shift -->
+                <div id="card-afternoon" class="rounded-2xl border-2 border-slate-200 bg-white transition-all overflow-hidden">
+                  <button type="button" onclick="toggleOption('afternoon')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none">
+                    <div class="flex items-center gap-3.5">
+                      <div id="check-afternoon" class="w-5 h-5 rounded-md border-2 border-slate-300 flex items-center justify-center transition-colors bg-white">
+                        <i data-lucide="check" class="w-3.5 h-3.5 text-white hidden"></i>
+                      </div>
+                      <div>
+                        <div class="font-bold text-sm sm:text-base text-slate-900">12:30 PM - 16:30 PM</div>
+                        <div class="text-xs text-slate-500">Afternoon Shift</div>
+                      </div>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200/70">4 hrs</span>
+                  </button>
+                  <!-- Dedicated Note Box for Afternoon Shift -->
+                  <div id="note-box-afternoon" class="hidden px-4 pb-4 pt-1 border-t border-slate-100 bg-brand-50/20 fade-in">
+                    <label for="note-afternoon" class="block text-xs font-semibold text-slate-700 mb-1">
+                      Work Details for 12:30 PM - 16:30 PM *
+                    </label>
+                    <textarea id="note-afternoon" rows="2" placeholder="Enter tasks or work details for the afternoon shift..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+                  </div>
+                </div>
+
+                <!-- Option 3: N/A -->
+                <div id="card-na" class="rounded-2xl border-2 border-slate-200 bg-white transition-all overflow-hidden">
+                  <button type="button" onclick="toggleOption('na')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none">
+                    <div class="flex items-center gap-3.5">
+                      <div id="check-na" class="w-5 h-5 rounded-md border-2 border-slate-300 flex items-center justify-center transition-colors bg-white">
+                        <i data-lucide="check" class="w-3.5 h-3.5 text-white hidden"></i>
+                      </div>
+                      <div>
+                        <div class="font-bold text-sm sm:text-base text-slate-900">N/A</div>
+                        <div class="text-xs text-slate-500">Unavailable / Day Off</div>
+                      </div>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Off</span>
+                  </button>
+                  <!-- Optional Reason / Note Box for N/A -->
+                  <div id="note-box-na" class="hidden px-4 pb-4 pt-1 border-t border-slate-100 bg-slate-50 fade-in">
+                    <label for="note-na" class="block text-xs font-semibold text-slate-700 mb-1">
+                      Note / Reason for N/A (Optional)
+                    </label>
+                    <input id="note-na" type="text" placeholder="e.g., Annual leave, training, external meeting..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Submit Bar -->
+            <div class="pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div id="selection-summary-text" class="text-xs font-medium text-slate-500">
+                No shift selected yet
+              </div>
+              <button type="submit" class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm shadow-sm shadow-brand-500/25 transition flex items-center justify-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>Save Schedule</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: TEAM SCHEDULE SUMMARY TABLE & CSV EXPORT                     -->
+    <!-- =================================================================== -->
+    <section id="view-summary" class="hidden fade-in space-y-5">
+
+      <!-- Top Bar -->
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900">Team Schedule & Work Details</h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5">All submitted shifts and task notes. Export directly to CSV for Excel or Google Sheets.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button onclick="switchTab('select')" class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Entry</span>
+          </button>
+          <button onclick="exportCSV()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+          <input id="filter-search" oninput="renderScheduleTable()" type="text" placeholder="Search by employee name or work details..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-brand-500 focus:outline-none" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="filter-date" onchange="renderScheduleTable()" type="date" class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-brand-500 focus:outline-none" />
+          <button onclick="clearFilters()" class="px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Clean Responsive Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th class="py-3.5 px-4">Date</th>
+                <th class="py-3.5 px-4">Employee Name</th>
+                <th class="py-3.5 px-4">Selected Shifts</th>
+                <th class="py-3.5 px-4">Work Details</th>
+                <th class="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="schedule-table-body" class="divide-y divide-slate-100 text-sm">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Exact 11 Team Members
+    const TEAM_MEMBERS = [
+      "Nguyễn Thị Đức Hạnh",
+      "Phạm Hoàng Duy Nguyên",
+      "Vũ Lê Ngọc",
+      "Lý Thị Kim Dung",
+      "Thái Hồng Đăng",
+      "Trần Thanh Mai",
+      "Trần Thị Vân Anh",
+      "Trương Đỗ Quyên",
+      "Lương Tấn Trung",
+      "Phan Phi Anh",
+      "Võ Phùng Nguyên"
+    ];
+
+    const SHIFT_LABELS = {
+      morning: '7:30 AM - 11:30 AM',
+      afternoon: '12:30 PM - 16:30 PM',
+      na: 'N/A'
+    };
+
+    const STORAGE_KEY = 'team_shift_scheduler_v3';
+
+    // Date helper YYYY-MM-DD
+    function toDateKey(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    const today = new Date();
+    let state = {
+      currentMonth: new Date(today.getFullYear(), today.getMonth(), 1),
+      selectedDate: toDateKey(today),
+      selectedOptions: {
+        morning: false,
+        afternoon: false,
+        na: false
+      },
+      entries: []
+    };
+
+    // Initialize Application
+    function init() {
+      loadEntries();
+      populateEmployeeDropdown();
+      renderCalendar();
+      updateSelectedDateHeader();
+      updateOptionCardsUI();
+      updateBadgeCount();
+      lucide.createIcons();
+    }
+
+    function loadEntries() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        state.entries = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        state.entries = [];
+      }
+    }
+
+    function saveEntries() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));
+      } catch (e) {
+        console.warn('Could not save to localStorage', e);
+      }
+      updateBadgeCount();
+    }
+
+    function updateBadgeCount() {
+      document.getElementById('entry-count-badge').textContent = state.entries.length;
+    }
+
+    // Populate the 17 names in the dropdown before the Custom option
+    function populateEmployeeDropdown() {
+      const select = document.getElementById('employee-select');
+      const customOpt = select.querySelector('option[value="__CUSTOM__"]');
+      TEAM_MEMBERS.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.insertBefore(opt, customOpt);
+      });
+    }
+
+    function getActiveEmployeeName() {
+      const selectVal = document.getElementById('employee-select').value;
+      if (selectVal === '__CUSTOM__') {
+        return document.getElementById('custom-name-input').value.trim();
+      }
+      return selectVal.trim();
+    }
+
+    function handleEmployeeChange(val) {
+      const customWrapper = document.getElementById('custom-name-wrapper');
+      if (val === '__CUSTOM__') {
+        customWrapper.classList.remove('hidden');
+        document.getElementById('custom-name-input').focus();
+      } else {
+        customWrapper.classList.add('hidden');
+      }
+      loadExistingEntryForSelection();
+    }
+
+    // If this employee already saved a schedule for the selected date, preload it for easy editing
+    function loadExistingEntryForSelection() {
+      const name = getActiveEmployeeName();
+      if (!name) return;
+
+      const existing = state.entries.find(
+        item => item.date === state.selectedDate && item.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (existing) {
+        state.selectedOptions = {
+          morning: Boolean(existing.shifts.morning),
+          afternoon: Boolean(existing.shifts.afternoon),
+          na: Boolean(existing.shifts.na)
+        };
+        document.getElementById('note-morning').value = existing.notes?.morning || '';
+        document.getElementById('note-afternoon').value = existing.notes?.afternoon || '';
+        document.getElementById('note-na').value = existing.notes?.na || '';
+        updateOptionCardsUI();
+      }
+    }
+
+    // Multi-Select Logic with Mutual Exclusivity for N/A
+    function toggleOption(optionKey) {
+      const nextVal = !state.selectedOptions[optionKey];
+
+      if (optionKey === 'na') {
+        if (nextVal) {
+          // Selecting N/A automatically deselects both work shifts
+          state.selectedOptions.morning = false;
+          state.selectedOptions.afternoon = false;
+          state.selectedOptions.na = true;
+        } else {
+          state.selectedOptions.na = false;
+        }
+      } else {
+        // Selecting Morning or Afternoon automatically deselects N/A
+        state.selectedOptions[optionKey] = nextVal;
+        if (nextVal) {
+          state.selectedOptions.na = false;
+        }
+      }
+
+      updateOptionCardsUI();
+    }
+
+    function updateOptionCardsUI() {
+      ['morning', 'afternoon', 'na'].forEach(key => {
+        const isSelected = state.selectedOptions[key];
+        const card = document.getElementById(`card-${key}`);
+        const checkBox = document.getElementById(`check-${key}`);
+        const checkIcon = checkBox.querySelector('svg, i');
+        const noteBox = document.getElementById(`note-box-${key}`);
+
+        if (isSelected) {
+          card.className = key === 'na'
+            ? 'rounded-2xl border-2 border-slate-700 bg-white shadow-xs transition-all overflow-hidden'
+            : 'rounded-2xl border-2 border-brand-500 bg-white shadow-xs transition-all overflow-hidden';
+
+          checkBox.className = key === 'na'
+            ? 'w-5 h-5 rounded-md border-2 border-slate-700 bg-slate-700 flex items-center justify-center transition-colors'
+            : 'w-5 h-5 rounded-md border-2 border-brand-500 bg-brand-500 flex items-center justify-center transition-colors';
+
+          if (checkIcon) checkIcon.classList.remove('hidden');
+          noteBox.classList.remove('hidden');
+        } else {
+          card.className = 'rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 transition-all overflow-hidden';
+          checkBox.className = 'w-5 h-5 rounded-md border-2 border-slate-300 flex items-center justify-center transition-colors bg-white';
+          if (checkIcon) checkIcon.classList.add('hidden');
+          noteBox.classList.add('hidden');
+        }
+      });
+
+      // Update live summary text above Save button
+      const chosen = [];
+      if (state.selectedOptions.morning) chosen.push(SHIFT_LABELS.morning);
+      if (state.selectedOptions.afternoon) chosen.push(SHIFT_LABELS.afternoon);
+      if (state.selectedOptions.na) chosen.push('N/A');
+
+      const summaryEl = document.getElementById('selection-summary-text');
+      summaryEl.textContent = chosen.length > 0
+        ? `Selected: ${chosen.join(' + ')}`
+        : 'No option selected yet';
+      summaryEl.className = chosen.length > 0
+        ? 'text-xs font-semibold text-brand-600'
+        : 'text-xs font-medium text-slate-500';
+    }
+
+    // Calendar Logic
+    function changeMonth(delta) {
+      state.currentMonth = new Date(
+        state.currentMonth.getFullYear(),
+        state.currentMonth.getMonth() + delta,
+        1
+      );
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = state.currentMonth.getFullYear();
+      const month = state.currentMonth.getMonth();
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      document.getElementById('calendar-month-label').textContent = `${monthNames[month]} ${year}`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      for (let i = 0; i < firstDay; i++) {
+        grid.appendChild(document.createElement('div'));
+      }
+
+      const todayKey = toDateKey(today);
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(year, month, day);
+        const dateKey = toDateKey(dateObj);
+        const isSelected = dateKey === state.selectedDate;
+        const hasEntries = state.entries.some(e => e.date === dateKey);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = day;
+
+        let cls = 'h-9 w-9 mx-auto rounded-full text-xs sm:text-sm font-semibold transition flex items-center justify-center relative ';
+        if (isSelected) {
+          cls += 'bg-brand-500 text-white shadow-sm shadow-brand-500/30';
+        } else if (dateKey === todayKey) {
+          cls += 'bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100';
+        } else {
+          cls += 'text-slate-700 hover:bg-slate-100';
+        }
+        btn.className = cls;
+
+        if (hasEntries && !isSelected) {
+          const dot = document.createElement('span');
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 absolute bottom-1';
+          btn.appendChild(dot);
+        }
+
+        btn.onclick = () => {
+          state.selectedDate = dateKey;
+          updateSelectedDateHeader();
+          renderCalendar();
+          // Reset shift selection cleanly when switching dates unless employee has an existing entry
+          state.selectedOptions = { morning: false, afternoon: false, na: false };
+          document.getElementById('note-morning').value = '';
+          document.getElementById('note-afternoon').value = '';
+          document.getElementById('note-na').value = '';
+          updateOptionCardsUI();
+          loadExistingEntryForSelection();
+        };
+
+        grid.appendChild(btn);
+      }
+    }
+
+    function formatHumanDate(dateKey) {
+      const [y, m, d] = dateKey.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function updateSelectedDateHeader() {
+      document.getElementById('selected-date-title').textContent = formatHumanDate(state.selectedDate);
+    }
+
+    // Save Form Submission
+    function handleSaveSchedule(event) {
+      event.preventDefault();
+
+      const name = getActiveEmployeeName();
+      if (!name) {
+        showToast('Please select or enter an employee name.', 'error');
+        return;
+      }
+
+      const { morning, afternoon, na } = state.selectedOptions;
+      if (!morning && !afternoon && !na) {
+        showToast('Please select at least one shift option (or N/A).', 'error');
+        return;
+      }
+
+      const morningNote = document.getElementById('note-morning').value.trim();
+      const afternoonNote = document.getElementById('note-afternoon').value.trim();
+      const naNote = document.getElementById('note-na').value.trim();
+
+      if (morning && !morningNote) {
+        showToast('Please enter work details for 7:30 AM - 11:30 AM.', 'error');
+        document.getElementById('note-morning').focus();
+        return;
+      }
+      if (afternoon && !afternoonNote) {
+        showToast('Please enter work details for 12:30 PM - 16:30 PM.', 'error');
+        document.getElementById('note-afternoon').focus();
+        return;
+      }
+
+      const entryPayload = {
+        id: 'sch-' + Date.now(),
+        date: state.selectedDate,
+        name,
+        shifts: { morning, afternoon, na },
+        notes: {
+          morning: morning ? morningNote : '',
+          afternoon: afternoon ? afternoonNote : '',
+          na: na ? naNote : ''
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      // Replace existing record if same employee + same date so there are no duplicate rows
+      const existingIndex = state.entries.findIndex(
+        e => e.date === state.selectedDate && e.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (existingIndex !== -1) {
+        entryPayload.id = state.entries[existingIndex].id;
+        state.entries[existingIndex] = entryPayload;
+        showToast(`Updated schedule for ${name}.`);
+      } else {
+        state.entries.push(entryPayload);
+        showToast(`Saved schedule for ${name}.`);
+      }
+
+      saveEntries();
+      renderCalendar();
+    }
+
+    // Tab Navigation
+    function switchTab(tab) {
+      const selectView = document.getElementById('view-select');
+      const summaryView = document.getElementById('view-summary');
+      const tabSelect = document.getElementById('tab-select');
+      const tabSummary = document.getElementById('tab-summary');
+
+      if (tab === 'select') {
+        selectView.classList.remove('hidden');
+        summaryView.classList.add('hidden');
+        tabSelect.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 bg-white text-brand-600 shadow-xs';
+        tabSummary.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900';
+        renderCalendar();
+      } else {
+        selectView.classList.add('hidden');
+        summaryView.classList.remove('hidden');
+        tabSummary.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 bg-white text-brand-600 shadow-xs';
+        tabSelect.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900';
+        renderScheduleTable();
+      }
+      lucide.createIcons();
+    }
+
+    // Render Summary Table
+    function renderScheduleTable() {
+      const tbody = document.getElementById('schedule-table-body');
+      const searchQuery = (document.getElementById('filter-search').value || '').toLowerCase().trim();
+      const dateFilter = document.getElementById('filter-date').value;
+
+      let list = [...state.entries];
+      if (dateFilter) {
+        list = list.filter(e => e.date === dateFilter);
+      }
+      if (searchQuery) {
+        list = list.filter(e =>
+          e.name.toLowerCase().includes(searchQuery) ||
+          (e.notes?.morning || '').toLowerCase().includes(searchQuery) ||
+          (e.notes?.afternoon || '').toLowerCase().includes(searchQuery) ||
+          (e.notes?.na || '').toLowerCase().includes(searchQuery)
+        );
+      }
+
+      // Sort by date ascending, then employee name
+      list.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+
+      tbody.innerHTML = '';
+
+      if (list.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-12 px-4 text-center text-slate-500">
+              <div class="font-semibold text-slate-700">No schedule entries found</div>
+              <div class="text-xs mt-1">Switch to "Select Schedule" to add shifts and work details.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      list.forEach(entry => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/80 transition align-top';
+
+        // Build Shift Badges
+        const badges = [];
+        if (entry.shifts.morning) {
+          badges.push(`<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">7:30 AM - 11:30 AM</span>`);
+        }
+        if (entry.shifts.afternoon) {
+          badges.push(`<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200/80">12:30 PM - 16:30 PM</span>`);
+        }
+        if (entry.shifts.na) {
+          badges.push(`<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">N/A</span>`);
+        }
+
+        // Build Work Details Breakdown
+        const detailsBlocks = [];
+        if (entry.shifts.morning && entry.notes?.morning) {
+          detailsBlocks.push(`
+            <div class="text-xs text-slate-700">
+              <span class="font-semibold text-amber-700">[7:30 - 11:30]:</span> ${escapeHTML(entry.notes.morning)}
+            </div>
+          `);
+        }
+        if (entry.shifts.afternoon && entry.notes?.afternoon) {
+          detailsBlocks.push(`
+            <div class="text-xs text-slate-700">
+              <span class="font-semibold text-sky-700">[12:30 - 16:30]:</span> ${escapeHTML(entry.notes.afternoon)}
+            </div>
+          `);
+        }
+        if (entry.shifts.na) {
+          const reason = entry.notes?.na ? escapeHTML(entry.notes.na) : '<span class="italic text-slate-400">Unavailable / Off</span>';
+          detailsBlocks.push(`
+            <div class="text-xs text-slate-600">
+              <span class="font-semibold text-slate-600">[N/A]:</span> ${reason}
+            </div>
+          `);
+        }
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 whitespace-nowrap font-medium text-slate-900 text-xs sm:text-sm">
+            ${formatHumanDate(entry.date)}
+          </td>
+          <td class="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
+            ${escapeHTML(entry.name)}
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-wrap gap-1.5">${badges.join('')}</div>
+          </td>
+          <td class="py-3.5 px-4 space-y-1.5 max-w-md">
+            ${detailsBlocks.join('')}
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <button onclick="editEntry('${entry.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-brand-600 hover:bg-brand-50 transition mr-1">
+              Edit
+            </button>
+            <button onclick="deleteEntry('${entry.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
+              Delete
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function clearFilters() {
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-date').value = '';
+      renderScheduleTable();
+    }
+
+    function editEntry(id) {
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+
+      // Set Date & Month
+      state.selectedDate = entry.date;
+      const [y, m] = entry.date.split('-').map(Number);
+      state.currentMonth = new Date(y, m - 1, 1);
+
+      // Set Employee Name
+      const select = document.getElementById('employee-select');
+      const customWrapper = document.getElementById('custom-name-wrapper');
+      if (TEAM_MEMBERS.includes(entry.name)) {
+        select.value = entry.name;
+        customWrapper.classList.add('hidden');
+      } else {
+        select.value = '__CUSTOM__';
+        customWrapper.classList.remove('hidden');
+        document.getElementById('custom-name-input').value = entry.name;
+      }
+
+      // Set Shifts & Notes
+      state.selectedOptions = {
+        morning: Boolean(entry.shifts.morning),
+        afternoon: Boolean(entry.shifts.afternoon),
+        na: Boolean(entry.shifts.na)
+      };
+      document.getElementById('note-morning').value = entry.notes?.morning || '';
+      document.getElementById('note-afternoon').value = entry.notes?.afternoon || '';
+      document.getElementById('note-na').value = entry.notes?.na || '';
+
+      updateSelectedDateHeader();
+      updateOptionCardsUI();
+      switchTab('select');
+    }
+
+    function deleteEntry(id) {
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveEntries();
+      renderScheduleTable();
+      renderCalendar();
+      showToast('Schedule entry deleted.');
+    }
+
+    // Export CSV with UTF-8 BOM for Vietnamese Diacritics in Excel / Google Sheets
+    function exportCSV() {
+      if (state.entries.length === 0) {
+        showToast('No schedule entries to export.', 'error');
+        return;
+      }
+
+      const headers = [
+        'Date',
+        'Employee Name',
+        'Selected Shifts',
+        'Morning Work Details (7:30 AM - 11:30 AM)',
+        'Afternoon Work Details (12:30 PM - 16:30 PM)',
+        'N/A Note'
+      ];
+
+      const sorted = [...state.entries].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+
+      const rows = sorted.map(e => {
+        const shiftList = [];
+        if (e.shifts.morning) shiftList.push('7:30 AM - 11:30 AM');
+        if (e.shifts.afternoon) shiftList.push('12:30 PM - 16:30 PM');
+        if (e.shifts.na) shiftList.push('N/A');
+
+        return [
+          csvEscape(e.date),
+          csvEscape(e.name),
+          csvEscape(shiftList.join(' ; ')),
+          csvEscape(e.notes?.morning || ''),
+          csvEscape(e.notes?.afternoon || ''),
+          csvEscape(e.notes?.na || '')
+        ].join(',');
+      });
+
+      const csvString = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `team_schedule_${toDateKey(new Date())}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('CSV exported with UTF-8 encoding.');
+    }
+
+    function csvEscape(val) {
+      const clean = String(val).replace(/\r?\n/g, ' ').replace(/"/g, '""');
+      return `"${clean}"`;
+    }
+
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? 'bg-rose-600' : 'bg-slate-900';
+      toast.className = `${bg} text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg fade-in`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
